@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function prof(){ return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function ok(){ return request.auth != null && exists(/databases/$(db)/documents/users/$(request.auth.uid)) && prof().active == true; }
+    function admin(){ return ok() && prof().role == 'admin'; }
+    function issuer(){ return admin() || (ok() && prof().canIssue == true); }
+
+    match /users/{u} {
+      allow read: if request.auth != null && (request.auth.uid == u || admin());
+      allow create: if admin() || (request.auth.uid == u && !exists(/databases/$(db)/documents/meta/init));
+      allow update, delete: if admin();
+    }
+    match /meta/init {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && !exists(/databases/$(db)/documents/meta/init);
+    }
+    match /meta/counter { allow read: if ok(); allow write: if issuer(); }
+    match /stock/{i}  { allow read: if ok(); allow write: if issuer(); }
+    match /gens/{g}   { allow read: if ok(); allow write: if admin(); }
+    match /vouchers/{v} {
+      allow read: if ok();
+      allow create: if issuer();
+      allow update: if admin() || (ok() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages']));
+      allow delete: if false;
+    }
+  }
+}

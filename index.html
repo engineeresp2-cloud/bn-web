@@ -1,0 +1,180 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>نظام الصرف المخزني | بوابة النور</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--b:#1f5fa8;--g:#2e9e4f;--d:#0d2b4e}*{box-sizing:border-box}
+body{margin:0;font-family:Cairo,Tahoma,sans-serif;background:linear-gradient(135deg,#e6eef9,#f3f9f1);color:#12263f;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;background:url(logo.jpg) center/min(65vw,560px) no-repeat;opacity:.08;pointer-events:none}
+#app{position:relative}input,select,button{font:inherit}
+input,select{padding:8px 10px;border:1px solid #b9c7d9;border-radius:8px;background:#fff;width:100%}
+button{cursor:pointer;border:0;border-radius:10px;padding:9px 16px;color:#fff;background:var(--b);font-weight:700}
+button.g{background:var(--g)}button.r{background:#c0392b}button.w{background:#6b7c93}button.x{background:#c0392b;padding:6px 10px}
+.top{display:flex;align-items:center;gap:14px;padding:10px 24px;background:linear-gradient(90deg,var(--d),var(--b));color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.top img{height:46px;background:#fff;border-radius:8px;padding:2px}.top b{flex:1;font-size:19px}
+nav{display:flex;gap:8px;padding:14px 24px;flex-wrap:wrap}nav button{background:#fff;color:var(--d);box-shadow:0 3px 8px rgba(0,0,0,.12)}nav button.on{background:var(--d);color:#fff}
+main{padding:0 24px 40px}.box{background:rgba(255,255,255,.92);border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(13,43,78,.12);margin-bottom:18px;overflow:auto}
+.cards{display:flex;gap:30px;flex-wrap:wrap;justify-content:center;perspective:1100px;padding:30px 0}
+.c3{width:260px;height:290px;border-radius:24px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;transform-style:preserve-3d;transition:transform .12s;box-shadow:0 35px 40px -18px rgba(13,43,78,.55),inset 0 2px 0 rgba(255,255,255,.4)}
+.c3 i{font-size:76px;font-style:normal;transform:translateZ(60px);filter:drop-shadow(0 14px 8px rgba(0,0,0,.4))}.c3 b{font-size:23px;transform:translateZ(35px)}
+.stats{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}.stats div{background:#fff;border-radius:14px;padding:12px 24px;text-align:center;box-shadow:0 6px 16px rgba(0,0,0,.1)}.stats b{display:block;font-size:26px;color:var(--b)}
+table{width:100%;border-collapse:collapse}th,td{padding:7px;border-bottom:1px solid #dde5ef;text-align:center;font-size:14px}th{background:#e8eff8}
+.login{max-width:380px;margin:9vh auto;perspective:900px}.login .box{padding:28px;text-align:center;transform-style:preserve-3d;transition:transform .1s}
+.login img{height:90px}.login input{margin:7px 0}.err{color:#c0392b;min-height:22px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}label{font-size:13px;font-weight:700;display:block}
+.chain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0}.st{padding:8px 12px;border-radius:12px;background:#e3e9f1;text-align:center;font-size:13px;min-width:120px}.st.ok{background:#d4f1de;border:2px solid var(--g)}.st.cur{border:2px dashed var(--b);background:#e0edfb}
+.tag{padding:2px 10px;border-radius:20px;font-size:12px;color:#fff;background:var(--g)}.tag.c{background:#c0392b}
+#modal{position:fixed;inset:0;background:rgba(10,20,40,.7);overflow:auto;padding:20px;display:none;z-index:9}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#12263f;color:#fff;padding:10px 22px;border-radius:12px;display:none;z-index:99}
+.sheet{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:12mm 14mm;position:relative;color:#000;font-family:Cairo,'Times New Roman',serif}
+.sheet .h{direction:ltr;display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #000;padding-bottom:6px}.sheet .h img{height:26mm}.sheet .h div{text-align:center;font-size:11px;font-weight:700;direction:ltr}
+.sheet h2{text-align:center;text-decoration:underline;margin:14mm 0 8mm;font-size:22px}.sheet .info{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:16px;line-height:1.9;margin-bottom:8mm}
+.sheet .no{border:1.5px solid #000;color:#c00;font:400 26px 'Times New Roman';padding:6px 22px;direction:ltr}
+.sheet table{direction:ltr;font-family:'Times New Roman',serif}.sheet th{background:#d9d9d9;border:1px solid #000;font-size:16px}.sheet td{border:1px solid #000;font-size:15px;font-weight:700;height:11mm}
+.sig{display:flex;justify-content:space-between;margin-top:22mm;font-weight:700}.sig div{width:46%;line-height:3}.sig u{display:block;text-align:center}.sig.s4{font-size:11px}.sig.s4 div{width:24%}
+.sheet .f{position:absolute;bottom:10mm;left:14mm;right:14mm;border-top:1px solid #000;padding-top:4px;font-size:10px;display:flex;justify-content:space-between;direction:ltr;font-weight:400}
+.sheet .cx{position:absolute;top:110mm;left:0;right:0;text-align:center;font-size:90px;color:rgba(200,0,0,.25);transform:rotate(-25deg);font-weight:900}
+@media print{#app,.nop,#toast{display:none!important}body::before{display:none}#modal{position:static;background:none;padding:0;display:block!important}@page{size:A4;margin:0}}
+</style></head><body><div id="app"></div><div id="modal"></div><div id="toast"></div>
+<script type="module">
+import cfg from './firebase-config.js';
+const FB=!cfg.apiKey.startsWith('YOUR');
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ROLES={admin:'مسؤول (Admin)',wsEng:'مهندس الورشة',teamEng:'مهندس التيم',teamDuty:'مناوب التيم',wsDuty:'مناوب الورشة'};
+const FLOW={wells:['wsEng','teamEng','teamDuty','wsDuty'],workshop:['wsEng','wsDuty'],other:['wsEng','wsDuty']};
+const TYPES={workshop:{n:'صرف للورشة',i:'🔧',c:'#2f7fd1,#0d2b4e'},wells:{n:'صرف للآبار',i:'🛢️',c:'#38b061,#0f5a2a'},other:{n:'صرف آخر',i:'📦',c:'#eaa03a,#8a4b06'}};
+const DAYS=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const fd=d=>d.split('-').reverse().join(' / '),today=()=>new Date().toISOString().slice(0,10);
+const deltas=(n,o)=>{const d={};(o?.items||[]).forEach(i=>i.sid&&(d[i.sid]=(d[i.sid]||0)-i.qty));(n?.items||[]).forEach(i=>i.sid&&(d[i.sid]=(d[i.sid]||0)+i.qty));return d};
+const normGen=s=>{s=String(s).trim();const m=s.match(/(\d+)\s*$/);return m?'Gen-'+m[1].padStart(3,'0'):s};
+
+/* ---------- Backends ---------- */
+async function demo(){
+  const LS='bn_demo_v1';let D=JSON.parse(localStorage.getItem(LS)||'null');const sv=()=>localStorage.setItem(LS,JSON.stringify(D));
+  if(!D){D={users:[{id:'u0',email:'admin@demo.com',pw:'admin123',name:'المسؤول',role:'admin',canIssue:true,active:true}],stock:(await(await fetch('stock.json')).json()).map((s,i)=>({...s,id:'s'+i})),gens:await(await fetch('gens.json')).json(),vouchers:[],next:149,sess:null};sv()}
+  const chk=d=>{for(const id in d)if(D.stock.find(x=>x.id===id).qty-d[id]<0)throw Error('الكمية غير كافية')};
+  const mv=d=>{for(const id in d)D.stock.find(x=>x.id===id).qty-=d[id]};
+  return{
+    async init(){return D.users.find(u=>u.id===D.sess)||null},
+    async login(e,p){const u=D.users.find(x=>x.email===e&&x.pw===p);if(!u)throw Error('بيانات الدخول غير صحيحة');if(!u.active)throw Error('الحساب موقوف');D.sess=u.id;sv();return u},
+    async logout(){D.sess=null;sv()},
+    async all(){return{users:D.users,stock:D.stock,gens:D.gens,vouchers:[...D.vouchers].sort((a,b)=>b.no-a.no),next:D.next}},
+    async addUser(u){if(D.users.some(x=>x.email===u.email))throw Error('البريد موجود');D.users.push({...u,id:'u'+Date.now(),active:true});sv()},
+    async setUser(id,p){Object.assign(D.users.find(u=>u.id===id),p);sv()},
+    async save(v,old){if(!old){v.no=v.no||D.next;if(D.vouchers.some(x=>x.no===v.no))throw Error('رقم الصادر مستخدم');v.id='v'+v.no}
+      const d=deltas(v,old);chk(d);mv(d);if(old)Object.assign(D.vouchers.find(x=>x.id===old.id),v);else{D.vouchers.push(v);D.next=Math.max(D.next,v.no+1)}sv();return v},
+    async cancel(v){mv(deltas(null,v));D.vouchers.find(x=>x.id===v.id).status='cancelled';sv()},
+    async stages(v){D.vouchers.find(x=>x.id===v.id).stages=v.stages;sv()},
+    async setQty(id,q){D.stock.find(s=>s.id===id).qty=q;sv()},
+    async seed(){throw Error('الاستيراد متاح فقط بعد ربط Firebase')}}
+}
+async function fire(){
+  const V='https://www.gstatic.com/firebasejs/10.12.2/';
+  const[{initializeApp},A,F]=await Promise.all([import(V+'firebase-app.js'),import(V+'firebase-auth.js'),import(V+'firebase-firestore.js')]);
+  const app=initializeApp(cfg),au=A.getAuth(app),db=F.getFirestore(app),d=(...p)=>F.doc(db,...p),c=n=>F.collection(db,n);
+  const rows=async n=>(await F.getDocs(c(n))).docs.map(x=>({id:x.id,...x.data()}));
+  async function prof(u){let s=await F.getDoc(d('users',u.uid));
+    if(!s.exists()){if((await F.getDoc(d('meta','init'))).exists())throw Error('حسابك غير مفعّل، راجع المسؤول');
+      const p={email:u.email,name:u.email.split('@')[0],role:'admin',canIssue:true,active:true};await F.setDoc(d('users',u.uid),p);await F.setDoc(d('meta','init'),{at:Date.now()});await F.setDoc(d('meta','counter'),{next:149});return{id:u.uid,...p}}
+    const p=s.data();if(!p.active)throw Error('الحساب موقوف');return{id:u.uid,...p}}
+  const tx=(v,old,cancel)=>F.runTransaction(db,async t=>{
+    const dl=cancel?deltas(null,v):deltas(v,old),ids=Object.keys(dl),sn=await Promise.all(ids.map(i=>t.get(d('stock',i))));let cs,vr,nx=149;
+    if(!cancel&&!old){cs=await t.get(d('meta','counter'));nx=cs.exists()?cs.data().next:149;v.no=v.no||nx;v.id='v'+v.no;vr=d('vouchers',v.id);if((await t.get(vr)).exists())throw Error('رقم الصادر مستخدم')}
+    sn.forEach((s,k)=>{if(!s.exists())throw Error('المادة غير موجودة بالمخزن، أعد الاستيراد');if(s.data().qty-dl[ids[k]]<0)throw Error('الكمية غير كافية: '+s.data().desc);t.update(s.ref,{qty:s.data().qty-dl[ids[k]]})});
+    if(cancel)t.update(d('vouchers',v.id),{status:'cancelled'});else if(old)t.update(d('vouchers',old.id),v);else{t.set(vr,v);t.set(d('meta','counter'),{next:Math.max(nx,v.no+1)})}});
+  return{
+    init:()=>new Promise(r=>A.onAuthStateChanged(au,u=>r(u?prof(u).catch(()=>null):null))),
+    login:async(e,p)=>prof((await A.signInWithEmailAndPassword(au,e,p)).user),logout:()=>A.signOut(au),
+    async all(){const[stock,gl,vouchers,users,cs]=await Promise.all([rows('stock'),rows('gens'),rows('vouchers'),rows('users').catch(()=>[]),F.getDoc(d('meta','counter'))]);
+      const gens={};gl.forEach(g=>{gens[g.id]=g});return{stock,gens,vouchers:vouchers.sort((a,b)=>b.no-a.no),users,next:cs.exists()?cs.data().next:149}},
+    async addUser(u){const a2=A.getAuth(initializeApp(cfg,'s'+Date.now()));const r=await A.createUserWithEmailAndPassword(a2,u.email,u.pw);await A.signOut(a2);delete u.pw;await F.setDoc(d('users',r.user.uid),{...u,active:true})},
+    setUser:(id,p)=>F.updateDoc(d('users',id),p),
+    async save(v,old){await tx(v,old);return v},cancel:v=>tx(v,null,true),stages:v=>F.updateDoc(d('vouchers',v.id),{stages:v.stages}),setQty:(id,q)=>F.updateDoc(d('stock',id),{qty:q}),
+    async seed(){if((await rows('stock')).length&&!confirm('المخزن فيه بيانات! الاستيراد يستبدل الكميات. متأكد؟'))return;
+      const st=await(await fetch('stock.json')).json(),g=await(await fetch('gens.json')).json();const ops=[...st.map((s,i)=>[d('stock','s'+i),s]),...Object.entries(g).map(([k,v])=>[d('gens',k),v])];
+      for(let i=0;i<ops.length;i+=400){const b=F.writeBatch(db);ops.slice(i,i+400).forEach(([r,v])=>b.set(r,v));await b.commit()}}}
+}
+let B,S={tab:'home',data:{stock:[],gens:{},vouchers:[],users:[],next:149}},FM=null;
+const isAdm=()=>S.user.role==='admin',canIssue=()=>isAdm()||S.user.canIssue;
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3500)};
+async function refresh(){S.data=await B.all()}
+
+/* ---------- Views ---------- */
+function render(){const app=$('#app');
+  if(!S.user){app.innerHTML=`<div class=login><div class="box tilt"><img src=logo.jpg><h2>نظام الصرف المخزني</h2><input id=em placeholder="البريد الإلكتروني" type=email><input id=pw placeholder="كلمة المرور" type=password onkeydown="event.key=='Enter'&&A.login()"><div class=err id=er></div><button style="width:100%" onclick="A.login()">دخول</button>${FB?'':'<p style="font-size:12px;color:#6b7c93">وضع تجريبي: admin@demo.com / admin123</p>'}</div></div>`;return tilt()}
+  const T=[['home','الرئيسية'],['log','سجل الصرف'],['track','متابعة الأوراق'],['stock','المخزن']];if(isAdm())T.push(['users','المستخدمون']);
+  const v=S.data.vouchers.filter(x=>x.status!=='cancelled');
+  const body={home:home,log:log,track:track,stock:stock,users:users,form:form}[S.tab]();
+  app.innerHTML=`<div class=top><img src=logo.jpg><b>نظام الصرف المخزني — Zfod W/S</b><span>${esc(S.user.name)} · ${ROLES[S.user.role]}</span><button class=w onclick="A.logout()">خروج</button></div>
+  <nav>${T.map(([k,n])=>`<button class="${S.tab==k?'on':''}" onclick="A.go('${k}')">${n}</button>`).join('')}</nav><main>${body}</main>`;tilt()}
+function home(){const v=S.data.vouchers.filter(x=>x.status!=='cancelled');
+  return`<div class=stats><div><b>${S.data.stock.length}</b>صنف بالمخزن</div><div><b>${v.length}</b>ورقة صرف</div><div><b>${v.filter(x=>!x.stages.every(s=>s.done)).length}</b>قيد المتابعة</div><div><b>${S.data.next}</b>رقم الصادر القادم</div></div>`+
+  (canIssue()?`<div class=cards>${Object.entries(TYPES).map(([k,t])=>`<div class=c3 style="background:linear-gradient(145deg,${t.c})" onclick="A.newV('${k}')"><i>${t.i}</i><b>${t.n}</b></div>`).join('')}</div>`:'<p style="text-align:center">لا تملك صلاحية الصرف. يمكنك متابعة الأوراق وتوقيع مرحلتك من تبويب المتابعة.</p>')}
+function form(){const t=FM.type,v=FM.v;
+  return`<div class=box><h2>${FM.old?'تعديل ورقة رقم '+FM.old.no:TYPES[t].n}</h2><div class=grid>
+  <div><label>رقم الصادر${isAdm()?'':' (تلقائي)'}</label><input id=f_no type=number value="${v.no}" ${isAdm()?'':'readonly'}></div>
+  <div><label>التاريخ${isAdm()?'':' (تلقائي)'}</label><input id=f_date type=date value="${v.date}" ${isAdm()?'':'readonly'}></div>
+  ${t!='other'?`<div><label>رقم المولد (Gen)</label><input id=f_gen value="${esc(v.gen)}" placeholder="مثال: 410" onchange="A.fill(this.value)"></div>`:`<div><label>الجهة / الغرض</label><input id=f_subject value="${esc(v.subject)}"></div>`}
+  ${t=='wells'?`<div><label>رقم التيم</label><input id=f_team value="${esc(v.team)}"></div><div><label>رقم البئر</label><input id=f_well value="${esc(v.well)}"></div>`:''}
+  ${t=='workshop'?`<div><label>نوع المولد</label><input id=f_gtype value="${esc(v.gtype)}"></div><div><label>نوع الصيانة</label><input id=f_maint value="${esc(v.maint)}"></div>`:''}</div>
+  <datalist id=sdl>${S.data.stock.map(s=>`<option value="${esc(s.pn+' | '+s.desc+' | '+s.loc)}" label="المتوفر ${s.qty}">`).join('')}</datalist><datalist id=ndl><option>New<option>Used<option>Repaired</datalist>
+  <h3>المواد</h3><table><tr><th>#<th>بحث (P/N أو وصف)<th>Description<th>P/N<th>المتوفر<th>QTY${t=='workshop'?'<th>W.O':''}<th>Notes<th></tr><tbody id=rows>${rowsH()}</tbody></table>
+  <p><button class=g onclick="A.add()">+ إضافة مادة</button> <button onclick="A.save()">💾 حفظ وتجهيز للطباعة</button> <button class=w onclick="A.go('home')">رجوع</button></p>
+  <small>الصرف يخصم مباشرة من المخزن عند الحفظ. يمكنك كتابة مادة يدويا (بدون خصم) إذا لم تكن موجودة بالمخزن.</small></div>`}
+const avail=r=>{const s=S.data.stock.find(x=>x.id===r.sid);return s?s.qty+(FM.old?.items.filter(i=>i.sid===r.sid).reduce((a,i)=>a+i.qty,0)||0):'—'};
+function rowsH(){return FM.v.items.map((r,i)=>`<tr><td>${i+1}<td><input list=sdl value="${esc(r.q||'')}" onchange="A.pick(${i},this.value)"><td><input value="${esc(r.desc)}" onchange="A.it(${i},'desc',this.value)"><td><input value="${esc(r.pn)}" onchange="A.it(${i},'pn',this.value)"><td><b>${avail(r)}</b><td style="width:80px"><input type=number min=1 value="${r.qty||''}" onchange="A.it(${i},'qty',+this.value)">${FM.type=='workshop'?`<td><input value="${esc(r.wo||'')}" onchange="A.it(${i},'wo',this.value)">`:''}<td><input list=ndl value="${esc(r.note||'')}" onchange="A.it(${i},'note',this.value)"><td><button class=x onclick="A.del(${i})">✕</button></tr>`).join('')}
+function log(){const q=(S.q||'').toLowerCase(),v=S.data.vouchers.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
+  return`<div class=box><input placeholder="🔍 بحث برقم الصادر / المولد / البئر / المادة..." value="${esc(S.q||'')}" oninput="S.q=this.value;A.go('log',1)" id=sq><table><tr><th>الرقم<th>النوع<th>التاريخ<th>Gen<th>بئر/تيم/جهة<th>مواد<th>الحالة<th></tr>${v.map(x=>`<tr><td><b>${x.no}</b><td>${TYPES[x.type].n}<td>${fd(x.date)}<td>${esc(x.gen)}<td>${esc(x.well||x.subject||x.maint||'')}<td>${x.items.length}<td><span class="tag ${x.status=='cancelled'?'c':''}">${x.status=='cancelled'?'ملغاة':'فعّالة'}</span><td><button onclick="A.view('${x.id}')">🖨️ عرض/طباعة</button>${isAdm()&&x.status!='cancelled'?` <button class=g onclick="A.edit('${x.id}')">تعديل</button> <button class=r onclick="A.cancel('${x.id}')">إلغاء</button>`:''}</tr>`).join('')}</table></div>`}
+function track(){const v=S.data.vouchers.filter(x=>x.status!=='cancelled'),L=Object.fromEntries(Object.entries(ROLES));
+  return v.map(x=>{const cur=x.stages.findIndex(s=>!s.done),pct=Math.round(x.stages.filter(s=>s.done).length/x.stages.length*100);
+    return`<div class=box><b>ورقة ${x.no}</b> · ${TYPES[x.type].n} · ${esc(x.gen)} ${esc(x.well)} · ${fd(x.date)} <span class=tag>${pct}%</span><div class=chain>${x.stages.map((s,i)=>`<div class="st ${s.done?'ok':i==cur?'cur':''}">${s.done?'✅':i==cur?'⏳':'⚪'} ${L[s.k]}<br><small>${s.done?esc(s.by)+' · '+new Date(s.at).toLocaleString('ar-IQ'):i==cur?'بانتظار التوقيع':''}</small>${i==cur&&(isAdm()||S.user.role==s.k)?`<br><button class=g onclick="A.sign('${x.id}',${i})">توقيع / تأكيد استلام</button>`:''}${s.done&&i==x.stages.filter(s=>s.done).length-1&&isAdm()?`<br><button class=w onclick="A.unsign('${x.id}',${i})">تراجع</button>`:''}</div>${i<x.stages.length-1?'←':''}`).join('')}</div></div>`}).join('')||'<div class=box>لا توجد أوراق</div>'}
+function stock(){const q=(S.sq||'').toLowerCase(),r=S.data.stock.filter(s=>(s.desc+s.pn+s.loc).toLowerCase().includes(q));
+  return`<div class=box><input id=sq placeholder="🔍 بحث بالوصف / P/N / الموقع" value="${esc(S.sq||'')}" oninput="S.sq=this.value;A.go('stock',1)">${isAdm()?`<p><button class=g onclick="A.seed()">⬆️ استيراد المخزن والمولدات إلى Firebase</button></p>`:''}<table><tr><th>No<th>Description<th>P/N<th>Qty<th>Location<th>Comment</tr>${r.slice(0,300).map(s=>`<tr><td>${s.no}<td>${esc(s.desc)}<td>${esc(s.pn)}<td><b style="color:${s.qty<=2?'#c0392b':'inherit'}">${s.qty}</b>${isAdm()?` <a href=# onclick="A.qty('${s.id}',${s.qty});return false">✎</a>`:''}<td>${esc(s.loc)}<td>${esc(s.comment)}</tr>`).join('')}</table></div>`}
+function users(){return`<div class=box><h3>إضافة مستخدم</h3><div class=grid><input id=u_n placeholder="الاسم"><input id=u_e placeholder="البريد" type=email><input id=u_p placeholder="كلمة المرور (6+)" type=password><select id=u_r>${Object.entries(ROLES).map(([k,n])=>`<option value=${k}>${n}`).join('')}</select><label><input type=checkbox id=u_i style="width:auto"> صلاحية الصرف</label><button class=g onclick="A.addUser()">إضافة</button></div></div>
+  <div class=box><table><tr><th>الاسم<th>البريد<th>الدور<th>الصرف<th>فعّال</tr>${S.data.users.map(u=>`<tr><td>${esc(u.name)}<td>${esc(u.email)}<td><select onchange="A.setUser('${u.id}',{role:this.value})">${Object.entries(ROLES).map(([k,n])=>`<option value=${k} ${u.role==k?'selected':''}>${n}`).join('')}</select><td><input type=checkbox style="width:auto" ${u.canIssue?'checked':''} onchange="A.setUser('${u.id}',{canIssue:this.checked})"><td><input type=checkbox style="width:auto" ${u.active?'checked':''} ${u.id==S.user.id?'disabled':''} onchange="A.setUser('${u.id}',{active:this.checked})"></tr>`).join('')}</table></div>`}
+
+/* ---------- Printable sheets (same layout as forms 146 / 148) ---------- */
+function sheet(v){const d=new Date(v.date),day=DAYS[d.getDay()],w=v.type=='workshop',tn=String(v.team||'').replace(/\D+/g,'')||v.team;
+  const rows=v.items.map((r,i)=>`<tr><td>${i+1}<td>${esc(r.desc)}<td>${esc(r.pn)}<td>${r.qty}${w?`<td>${esc(r.wo||'')}`:''}<td>${esc(r.note||'')}</tr>`).join('')+(w?'':'');
+  const info=w?`تم صرف مواد باليوم الموافق <b>${fd(v.date)}</b> :<br>- رقم المولد : ${esc(v.gen)}<br>- نوع المولد : ${esc(v.gtype)}<br>- نوع الصيانة : ${esc(v.maint)}`
+   :`انه في يوم ${day} الموافق ${fd(v.date)} تم تسليم المواد :<br>${v.type=='wells'?`التيم : ${esc(tn)}<br>رقم المولد : ${esc(v.gen)}<br>رقم البئر : ${esc(v.well)}`:`الجهة / الغرض : ${esc(v.subject)}${v.gen?'<br>رقم المولد : '+esc(v.gen):''}`}`;
+  const sg=(a,b)=>`<div><u>عـــن شـــركـــة ${a}</u>الاســـم :<br>الـوظـيفـة :<br>التوقـيـع :</div>`;
+  return`<div class=sheet>${v.status=='cancelled'?'<div class=cx>ملغاة</div>':''}<div class=h><img src=logo.jpg><div style="text-align:right"><span style="direction:rtl;display:block">شركة بوابة النور للمقاولات العامة محدودة المسؤولية</span>BOABAT ALNOOR COMPANY FOR<br>GENERAL CONTRACTING LTD.</div></div>
+  <h2>${w?'مخزن Zfod W/S':'مـحـــضـــر تسليم'}</h2><div class=info><div>${info}</div><div class=no>${v.no}</div></div>
+  ${w?'':'<b>تم تسليم المواد الآتية:</b>'}<table><tr><th style="width:40px">Item<th>Description<th>P/N<th style="width:60px">QTY${w?'<th>W.O':''}<th>Notes</tr>${rows}</table>
+  ${w||v.type=='other'?`<div class=sig>${sg('بوابة النور (استلام)')}${sg('Zfod (تسليم)')}</div>`:`<div class="sig s4">${sg('بوابة النور (تسليم)')}${sg('Zfod (استلام)')}${sg('ZFOD (تسليم)')}${sg('بوابة النور (استلام)')}</div>`}
+  <div class=f><span>E-mail: boabat.alnoor@gmail.com<br>Mobile: +964 770 589 9599 - +964 780 616 7877<br>AlMohandseen district-Zubayr street, Basra, Iraq</span><span style="text-align:right">Fax: +964 40614734<br>PO Box: 2683<br>www.boabatalnoor.com</span></div></div>`}
+function tilt(){document.querySelectorAll('.c3,.tilt').forEach(e=>{e.onmousemove=ev=>{const r=e.getBoundingClientRect(),x=(ev.clientX-r.left)/r.width-.5,y=(ev.clientY-r.top)/r.height-.5;e.style.transform=`rotateY(${x*26}deg) rotateX(${-y*26}deg) scale(1.04)`};e.onmouseleave=()=>e.style.transform=''})}
+
+/* ---------- Actions ---------- */
+const byId=id=>S.data.vouchers.find(x=>x.id===id),stg=t=>FLOW[t].map(k=>({k,done:false}));
+const rr=()=>setTimeout(()=>{const r=$('#rows');if(r)r.innerHTML=rowsH()},0);
+const A=window.A={
+  async login(){try{S.user=await B.login($('#em').value.trim(),$('#pw').value);await refresh();S.tab='home';render()}catch(e){$('#er').textContent=e.code?'بيانات الدخول غير صحيحة':e.message}},
+  async logout(){await B.logout();S.user=null;render()},
+  async go(t,keep){if(t!='form')FM=null;S.tab=t;await refresh();render();if(keep){const i=$('#sq');i.focus();i.setSelectionRange(99,99)}},
+  newV(t){FM={type:t,old:null,v:{no:S.data.next,date:today(),gen:'',well:'',team:'',gtype:'',maint:'',subject:'',items:[{desc:'',pn:'',qty:0}]}};S.tab='form';render()},
+  edit(id){const o=byId(id);FM={type:o.type,old:o,v:JSON.parse(JSON.stringify(o))};S.tab='form';render()},
+  fill(val){const g=normGen(val),i=S.data.gens[g];$('#f_gen').value=g;if(!i)return toast('المولد غير موجود بالبيانات — أدخل المعلومات يدويا');
+    const set=(id,x)=>{const e=$('#'+id);if(e)e.value=x||''};set('f_well',i.w);set('f_team',i.t);set('f_gtype',[i.e,i.k].filter(Boolean).join(' '));set('f_maint',i.a);toast('تم تعبئة بيانات '+g)},
+  pick(i,val){const s=S.data.stock.find(x=>x.pn+' | '+x.desc+' | '+x.loc===val)||S.data.stock.find(x=>x.pn===val.trim()),r=FM.v.items[i];
+    if(s)Object.assign(r,{sid:s.id,desc:s.desc,pn:s.pn,q:val});else Object.assign(r,{sid:null,desc:val,q:val});rr()},
+  it(i,k,val){FM.v.items[i][k]=val;if(k=='pn'||k=='desc')FM.v.items[i].sid=null;rr()},
+  add(){FM.v.items.push({desc:'',pn:'',qty:0});rr()},del(i){FM.v.items.splice(i,1);rr()},
+  async save(){const g=id=>$('#'+id)?.value.trim()||'',v=FM.v,t=FM.type;
+    Object.assign(v,{type:t,date:g('f_date')||today(),gen:g('f_gen'),well:g('f_well'),team:g('f_team'),gtype:g('f_gtype'),maint:g('f_maint'),subject:g('f_subject')});
+    const no=+g('f_no');v.no=FM.old?FM.old.no:(no&&no!==S.data.next?no:null);
+    v.items=v.items.filter(i=>i.desc&&i.qty>0).map(({q,...r})=>({sid:null,...r}));
+    if(!v.items.length)return toast('أضف مادة واحدة على الأقل مع الكمية');if(t!='other'&&!v.gen)return toast('أدخل رقم المولد');if(t=='other'&&!v.subject)return toast('أدخل الجهة/الغرض');
+    for(const r of v.items)if(r.sid){const s=S.data.stock.find(x=>x.id===r.sid);if(r.qty>avail(r))return toast('الكمية أكبر من المتوفر: '+s.desc)}
+    if(FM.old){v.stages=FM.old.stages;v.status=FM.old.status}else{Object.assign(v,{stages:stg(t),status:'active',by:S.user.name,at:Date.now()})}
+    try{const r=await B.save(v,FM.old);await refresh();FM=null;S.tab='log';render();A.view(r.id)}catch(e){toast(e.message)}},
+  view(id){const v=byId(id);$('#modal').innerHTML=`<div class=nop style="text-align:center;margin-bottom:10px"><button onclick="print()">🖨️ طباعة</button> <button class=w onclick="A.close()">إغلاق</button></div>${sheet(v)}`;$('#modal').style.display='block'},
+  close(){$('#modal').style.display='none'},
+  async cancel(id){if(!confirm('إلغاء الورقة وإرجاع المواد للمخزن؟'))return;try{await B.cancel(byId(id));A.go('log')}catch(e){toast(e.message)}},
+  async sign(id,i){const v=byId(id);v.stages[i]={k:v.stages[i].k,done:true,by:S.user.name,at:Date.now()};await B.stages(v);A.go('track')},
+  async unsign(id,i){const v=byId(id);v.stages[i]={k:v.stages[i].k,done:false};await B.stages(v);A.go('track')},
+  async qty(id,q){const n=prompt('الكمية الجديدة',q);if(n!==null&&!isNaN(+n)){await B.setQty(id,+n);A.go('stock',1)}},
+  async seed(){try{await B.seed();toast('تم الاستيراد');A.go('stock')}catch(e){toast(e.message)}},
+  async addUser(){const g=id=>$('#'+id).value.trim();try{await B.addUser({name:g('u_n'),email:g('u_e'),pw:$('#u_p').value,role:$('#u_r').value,canIssue:$('#u_i').checked});toast('تمت الإضافة');A.go('users')}catch(e){toast(e.message)}},
+  async setUser(id,p){await B.setUser(id,p);toast('تم الحفظ')}};
+B=FB?await fire():await demo();S.user=await B.init();if(S.user)await refresh();render();
+</script></body></html>
