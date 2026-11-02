@@ -54,14 +54,17 @@ async function demo(){
   const chk=d=>{for(const id in d)if(D.stock.find(x=>x.id===id).qty-d[id]<0)throw Error('الكمية غير كافية')};
   const mv=d=>{for(const id in d)D.stock.find(x=>x.id===id).qty-=d[id]};
   return{
-    async init(){return D.users.find(u=>u.id===D.sess)||null},
-    async login(e,p){const u=D.users.find(x=>x.email===e&&x.pw===p);if(!u)throw Error('بيانات الدخول غير صحيحة');if(!u.active)throw Error('الحساب موقوف');D.sess=u.id;sv();return u},
-    async logout(){D.sess=null;sv()},
+    async init(){return D.users.find(u=>u.id===sessionStorage.bn_sess)||null},
+    async login(e,p){const u=D.users.find(x=>x.email===e&&x.pw===p);if(!u)throw Error('بيانات الدخول غير صحيحة');if(!u.active)throw Error('الحساب موقوف');sessionStorage.bn_sess=u.id;return u},
+    async logout(){sessionStorage.removeItem('bn_sess')},
     async all(){return JSON.parse(JSON.stringify({users:D.users,stock:D.stock,gens:D.gens,vouchers:[...D.vouchers].sort((a,b)=>b.no-a.no),next:D.next}))},
     async addUser(u){if(D.users.some(x=>x.email===u.email))throw Error('البريد موجود');D.users.push({...u,id:'u'+Date.now(),active:true});sv()},
     async setUser(id,p){Object.assign(D.users.find(u=>u.id===id),p);sv()},
+    cbs:[],async event(ev){D.events=D.events||[];D.events.unshift({id:'e'+Date.now()+Math.random(),...ev});sv();this.cbs.forEach(c=>c.events(D.events.slice(0,15),false))},
+    async setNext(n){D.next=n;sv();this.cbs.forEach(c=>c.counter(n))},
+    listen(cb){this.cbs.push(cb);cb.events((D.events||[]).slice(0,15),true);cb.counter(D.next);return()=>{this.cbs=this.cbs.filter(x=>x!==cb)}},
     async save(v,old){if(!old){v.no=v.no||D.next;if(D.vouchers.some(x=>x.no===v.no))throw Error('رقم الصادر مستخدم');v.id='v'+v.no}
-      const d=deltas(v,old);chk(d);mv(d);if(old)Object.assign(D.vouchers.find(x=>x.id===old.id),v);else{D.vouchers.push(v);D.next=Math.max(D.next,v.no+1)}sv();return v},
+      const d=deltas(v,old);chk(d);mv(d);if(old)Object.assign(D.vouchers.find(x=>x.id===old.id),v);else{D.vouchers.push(v);D.next=v.no+1}sv();return v},
     async cancel(v){mv(deltas(null,v));D.vouchers.find(x=>x.id===v.id).status='cancelled';sv()},
     async stages(v){D.vouchers.find(x=>x.id===v.id).stages=v.stages;sv()},
     async setQty(id,q){D.stock.find(s=>s.id===id).qty=q;sv()},
@@ -70,7 +73,7 @@ async function demo(){
 async function fire(){
   const V='https://www.gstatic.com/firebasejs/10.12.2/';
   const[{initializeApp},A,F]=await Promise.all([import(V+'firebase-app.js'),import(V+'firebase-auth.js'),import(V+'firebase-firestore.js')]);
-  const app=initializeApp(cfg),au=A.getAuth(app),db=F.getFirestore(app),d=(...p)=>F.doc(db,...p),c=n=>F.collection(db,n);
+  const app=initializeApp(cfg),au=A.initializeAuth(app,{persistence:A.browserSessionPersistence}),db=F.getFirestore(app),d=(...p)=>F.doc(db,...p),c=n=>F.collection(db,n);
   const rows=async n=>(await F.getDocs(c(n))).docs.map(x=>({id:x.id,...x.data()}));
   async function prof(u){let s=await F.getDoc(d('users',u.uid));
     if(!s.exists()){if((await F.getDoc(d('meta','init'))).exists())throw Error('حسابك غير مفعّل، راجع المسؤول');
@@ -80,7 +83,7 @@ async function fire(){
     const dl=cancel?deltas(null,v):deltas(v,old),ids=Object.keys(dl),sn=await Promise.all(ids.map(i=>t.get(d('stock',i))));let cs,vr,nx=149;
     if(!cancel&&!old){cs=await t.get(d('meta','counter'));nx=cs.exists()?cs.data().next:149;v.no=v.no||nx;v.id='v'+v.no;vr=d('vouchers',v.id);if((await t.get(vr)).exists())throw Error('رقم الصادر مستخدم')}
     sn.forEach((s,k)=>{if(!s.exists())throw Error('المادة غير موجودة بالمخزن، أعد الاستيراد');if(s.data().qty-dl[ids[k]]<0)throw Error('الكمية غير كافية: '+s.data().desc);t.update(s.ref,{qty:s.data().qty-dl[ids[k]]})});
-    if(cancel)t.update(d('vouchers',v.id),{status:'cancelled'});else if(old)t.update(d('vouchers',old.id),v);else{t.set(vr,v);t.set(d('meta','counter'),{next:Math.max(nx,v.no+1)})}});
+    if(cancel)t.update(d('vouchers',v.id),{status:'cancelled'});else if(old)t.update(d('vouchers',old.id),v);else{t.set(vr,v);t.set(d('meta','counter'),{next:v.no+1})}});
   return{
     init:()=>new Promise(r=>A.onAuthStateChanged(au,u=>r(u?prof(u).catch(()=>null):null))),
     login:async(e,p)=>prof((await A.signInWithEmailAndPassword(au,e,p)).user),logout:()=>A.signOut(au),
@@ -96,32 +99,43 @@ async function fire(){
         try{r=await A.signInWithEmailAndPassword(a2,u.email,u.pw)}catch{throw Error('الإيميل مسجل بكلمة مرور مختلفة. احذفه من Authentication ثم أضفه من جديد')}}
       await A.signOut(a2);if((await F.getDoc(d('users',r.user.uid))).exists())throw Error('المستخدم موجود مسبقاً بالقائمة');delete u.pw;await F.setDoc(d('users',r.user.uid),{...u,active:true})},
     setUser:(id,p)=>F.updateDoc(d('users',id),p),
+    event:ev=>F.addDoc(c('events'),ev),
+    setNext:n=>F.setDoc(d('meta','counter'),{next:n}),
+    listen(cb){const u1=F.onSnapshot(d('meta','counter'),s=>{if(s.exists())cb.counter(s.data().next)},()=>{});let first=true;
+      const u2=F.onSnapshot(F.query(c('events'),F.orderBy('at','desc'),F.limit(15)),s=>{cb.events(s.docs.map(x=>({id:x.id,...x.data()})),first);first=false},()=>{});return()=>{u1();u2()}},
     async save(v,old){await tx(v,old);return v},cancel:v=>tx(v,null,true),stages:v=>F.updateDoc(d('vouchers',v.id),{stages:v.stages}),setQty:(id,q)=>F.updateDoc(d('stock',id),{qty:q}),
     async seed(){if((await rows('stock')).length&&!confirm('المخزن فيه بيانات! الاستيراد يستبدل الكميات. متأكد؟'))return;
       const st=await(await fetch('stock.json')).json(),g=await(await fetch('gens.json')).json();const ops=[...st.map((s,i)=>[d('stock','s'+i),s]),...Object.entries(g).map(([k,v])=>[d('gens',k),v])];
       for(let i=0;i<ops.length;i+=400){const b=F.writeBatch(db);ops.slice(i,i+400).forEach(([r,v])=>b.set(r,v));await b.commit()}}}
 }
-let B,S={tab:'home',hist:[],data:{stock:[],gens:{},vouchers:[],users:[],next:149}},FM=null;
+let B,S={tab:'home',hist:[],ev:[],data:{stock:[],gens:{},vouchers:[],users:[],next:149}},FM=null;
 const isAdm=()=>S.user.role==='admin',canIssue=()=>isAdm()||S.user.canIssue;
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3500)};
 async function refresh(f={}){Object.assign(S.data,await B.all(f))}
 const em=e=>/quota|resource-exhausted/i.test((e.code||'')+(e.message||''))?'انتهت الحصة اليومية المجانية لـ Firebase. تتجدد تلقائياً كل يوم بحدود الساعة 10 إلى 11 صباحاً بتوقيت بغداد':(e.message||e.code);
 const dk=()=>'bn_draft_'+S.user.id,saveDraft=()=>{try{FM?localStorage[dk()]=JSON.stringify(FM):localStorage.removeItem(dk())}catch{}};
-const syncForm=()=>{if(!FM||!$('#f_date'))return;const g=id=>$('#'+id)?.value,v=FM.v;v.date=g('f_date')||v.date;v.no=+g('f_no')||v.no;
+const syncForm=()=>{if(!FM||!$('#f_date'))return;const g=id=>$('#'+id)?.value,v=FM.v;v.date=g('f_date')||v.date;v.no=+g('f_no')||v.no;FM.noEdited=!FM.old&&v.no!==(FM.autoNo??S.data.next);
   [['gen','f_gen'],['well','f_well'],['team','f_team'],['gtype','f_gtype'],['maint','f_maint'],['subject','f_subject']].forEach(([k,id])=>{if($('#'+id))v[k]=g(id)});saveDraft()};
 const loadDraft=()=>{try{FM=JSON.parse(localStorage[dk()]||'null')}catch{FM=null}};
+const evText=e=>({issue:`🆕 ${e.name} صرف ورقة رقم ${e.no} (${TYPES[e.vt]?.n||''}) ${e.gen||''}`,edit:`✏️ ${e.name} عدّل ورقة رقم ${e.no}`,cancel:`❌ ${e.name} ألغى ورقة رقم ${e.no}`,sign:`✅ ${e.name} وقّع مرحلة (${ROLES[e.role]||''}) على ورقة ${e.no}`,counter:`🔢 ${e.name} غيّر رقم الصادر القادم إلى ${e.n}`}[e.t]||'');
+const seenKey=()=>'bn_seen_'+S.user.id,unread=()=>S.ev.filter(e=>e.by!==S.user.id&&e.at>(+localStorage[seenKey()]||0)).length;
+const bellUpd=()=>{const b=$('#bell');if(b){const n=unread();b.textContent='🔔'+(n?' '+n:'');b.className=n?'r':'w'}};
+function onEv(arr,first){const old=new Set(S.ev.map(e=>e.id));S.ev=arr;if(!first)arr.filter(e=>!old.has(e.id)&&e.by!==S.user.id).forEach(e=>{const t=evText(e);toast(t);try{if(document.hidden&&Notification.permission=='granted')new Notification('نظام الصرف',{body:t})}catch{}});bellUpd()}
+function onCounter(n){S.data.next=n;const x=$('#nextNo');if(x)x.textContent=n;if(FM&&!FM.old&&!FM.noEdited){FM.v.no=FM.autoNo=n;const f=$('#f_no');if(f)f.value=n}}
+async function ev(t,x={}){try{await B.event({t,by:S.user.id,name:S.user.name,at:Date.now(),...x})}catch{}}
+let idle;const bump=()=>{clearTimeout(idle);if(S.user)idle=setTimeout(async()=>{await A.logout();toast('تم تسجيل الخروج لعدم النشاط')},36e5)};['click','keydown','mousemove','touchstart'].forEach(e=>addEventListener(e,bump,{passive:true}));
 const localStock=d=>{for(const id in d){const s=S.data.stock.find(x=>x.id===id);if(s)s.qty-=d[id]}};
 
 /* ---------- Views ---------- */
 function render(){const app=$('#app');if(S.tab=='form'&&!FM)S.tab='home';
   if(!S.user){app.innerHTML=`<div class=login><div class="box tilt"><img src=logo.jpg><h2>نظام الصرف المخزني</h2><input id=em placeholder="البريد الإلكتروني" type=email><input id=pw placeholder="كلمة المرور" type=password onkeydown="event.key=='Enter'&&A.login()"><div class=err id=er></div><button style="width:100%" onclick="A.login()">دخول</button>${FB?'':'<p style="font-size:12px;color:#6b7c93">وضع تجريبي: admin@demo.com / admin123</p>'}</div></div>`;return tilt()}
-  const T=[['home','الرئيسية'],['log','سجل الصرف'],['track','متابعة الأوراق'],['stock','المخزن']];if(isAdm())T.push(['users','المستخدمون']);
+  const T=S.user.role=='wsDuty'?[['home','الرئيسية'],['track','متابعة الأوراق'],['log','سجل الصرف']]:[['home','الرئيسية'],['log','سجل الصرف'],['track','متابعة الأوراق'],['stock','المخزن']];if(isAdm())T.push(['users','المستخدمون']);
   const v=S.data.vouchers.filter(x=>x.status!=='cancelled');
   const body={home:home,log:log,track:track,stock:stock,users:users,form:form}[S.tab]();
-  app.innerHTML=`<div class=top><img src=logo.jpg><b>نظام الصرف المخزني — Zfod W/S</b><span>${esc(S.user.name)} · ${ROLES[S.user.role]}</span><button class=w onclick="A.logout()">خروج</button></div>
-  <nav>${S.hist.length&&S.tab!='home'?'<button class=w onclick="A.back()">↩ رجوع</button>':''}${T.map(([k,n])=>`<button class="${S.tab==k?'on':''}" onclick="A.go('${k}')">${n}</button>`).join('')}${FM&&S.tab!='form'?`<button class=g onclick="A.resume()">📝 ورقة قيد التحرير${FM.old?' (تعديل '+FM.old.no+')':''}</button>`:''}</nav><main>${body}</main>`;tilt()}
+  app.innerHTML=`<div class=top><img src=logo.jpg><b>نظام الصرف المخزني — Zfod W/S</b><span>${esc(S.user.name)} · ${ROLES[S.user.role]}</span><button id=bell class=w onclick="A.bell()">🔔</button> <button class=w onclick="A.logout()">خروج</button></div>
+  <nav>${S.hist.length&&S.tab!='home'?'<button class=w onclick="A.back()">↩ رجوع</button>':''}${T.map(([k,n])=>`<button class="${S.tab==k?'on':''}" onclick="A.go('${k}')">${n}</button>`).join('')}${FM&&S.tab!='form'?`<button class=g onclick="A.resume()">📝 ورقة قيد التحرير${FM.old?' (تعديل '+FM.old.no+')':''}</button>`:''}</nav><main>${body}</main>`;tilt();bellUpd()}
 function home(){const v=S.data.vouchers.filter(x=>x.status!=='cancelled');
-  return`<div class=stats><div><b>${S.data.stock.length}</b>صنف بالمخزن</div><div><b>${v.length}</b>ورقة صرف</div><div><b>${v.filter(x=>!x.stages.every(s=>s.done)).length}</b>قيد المتابعة</div><div><b>${S.data.next}</b>رقم الصادر القادم</div></div>`+
+  return`<div class=stats><div><b>${S.data.stock.length}</b>صنف بالمخزن</div><div><b>${v.length}</b>ورقة صرف</div><div><b>${v.filter(x=>!x.stages.every(s=>s.done)).length}</b>قيد المتابعة</div><div><b id=nextNo>${S.data.next}</b>رقم الصادر القادم${isAdm()?' <a href=# onclick="A.setNext();return false">✎ تغيير</a>':''}</div></div>`+
   (canIssue()?`<div class=cards>${Object.entries(TYPES).map(([k,t])=>`<div class=c3 style="background:linear-gradient(145deg,${t.c})" onclick="A.newV('${k}')"><i>${t.i}</i><b>${t.n}</b></div>`).join('')}</div>`:'<p style="text-align:center">لا تملك صلاحية الصرف. يمكنك متابعة الأوراق وتوقيع مرحلتك من تبويب المتابعة.</p>')}
 function form(){const t=FM.type,v=FM.v;
   return`<div class=box><h2>${FM.old?'تعديل ورقة رقم '+FM.old.no:TYPES[t].n}</h2><div class=grid onchange="A.sync()">
@@ -137,11 +151,11 @@ function form(){const t=FM.type,v=FM.v;
 const avail=r=>{const s=S.data.stock.find(x=>x.id===r.sid);return s?s.qty+(FM.old?.items.filter(i=>i.sid===r.sid).reduce((a,i)=>a+i.qty,0)||0):'—'};
 function rowsH(){return FM.v.items.map((r,i)=>`<tr><td>${i+1}<td><input list=sdl value="${esc(r.q||'')}" onchange="A.pick(${i},this.value)"><td><input value="${esc(r.desc)}" onchange="A.it(${i},'desc',this.value)"><td><input value="${esc(r.pn)}" onchange="A.it(${i},'pn',this.value)"><td><b>${avail(r)}</b><td style="width:80px"><input type=number min=1 value="${r.qty||''}" onchange="A.it(${i},'qty',+this.value)">${FM.type=='workshop'?`<td><input value="${esc(r.wo||'')}" onchange="A.it(${i},'wo',this.value)">`:''}<td><input list=ndl value="${esc(r.note||'')}" onchange="A.it(${i},'note',this.value)"><td><button class=x onclick="A.del(${i})">✕</button></tr>`).join('')}
 function log(){const q=(S.q||'').toLowerCase(),v=S.data.vouchers.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-  return`<div class=box><input placeholder="🔍 بحث برقم الصادر / المولد / البئر / المادة..." value="${esc(S.q||'')}" oninput="S.q=this.value;A.go('log',1)" id=sq><table><tr><th>الرقم<th>النوع<th>التاريخ<th>Gen<th>بئر/تيم/جهة<th>مواد<th>الحالة<th></tr>${v.map(x=>`<tr><td><b>${x.no}</b><td>${TYPES[x.type].n}<td>${fd(x.date)}<td>${esc(x.gen)}<td>${esc(x.well||x.subject||x.maint||'')}<td>${x.items.length}<td><span class="tag ${x.status=='cancelled'?'c':''}">${x.status=='cancelled'?'ملغاة':'فعّالة'}</span><td><button onclick="A.view('${x.id}')">🖨️ عرض/طباعة</button>${isAdm()&&x.status!='cancelled'?` <button class=g onclick="A.edit('${x.id}')">تعديل</button> <button class=r onclick="A.cancel('${x.id}')">إلغاء</button>`:''}</tr>`).join('')}</table></div>`}
+  return`<div class=box><input placeholder="🔍 بحث برقم الصادر / المولد / البئر / المادة..." value="${esc(S.q||'')}" oninput="S.q=this.value;A.go('log',1)" id=sq><table><tr><th>الرقم<th>النوع<th>التاريخ<th>Gen<th>بئر/تيم/جهة<th>مواد<th>الحالة<th></tr>${v.map(x=>`<tr><td><b>${x.no}</b><td>${TYPES[x.type].n}<td>${fd(x.date)}<td>${esc(x.gen)}<td>${esc(x.well||x.subject||x.maint||'')}<td style="text-align:right;font-size:12px">${x.items.map(i=>esc(i.desc)+'×'+i.qty).join('، ')}<td><span class="tag ${x.status=='cancelled'?'c':''}">${x.status=='cancelled'?'ملغاة':'فعّالة'}</span><td><button onclick="A.view('${x.id}')">🖨️ عرض/طباعة</button>${isAdm()&&x.status!='cancelled'?` <button class=g onclick="A.edit('${x.id}')">تعديل</button> <button class=r onclick="A.cancel('${x.id}')">إلغاء</button>`:''}</tr>`).join('')}</table></div>`}
 function track(){const v=S.data.vouchers.filter(x=>x.status!=='cancelled'),p=x=>!x.stages.every(s=>s.done),list=S.pend?v.filter(p):v;
   return`<div class=box style="padding:10px"><button class="${S.pend?'':'w'}" onclick="S.pend=true;A.go('track',0,1)">قيد المتابعة (${v.filter(p).length})</button> <button class="${S.pend?'w':''}" onclick="S.pend=false;A.go('track',0,1)">كل الأوراق (${v.length})</button> <button class=w onclick="A.go('track',0,1)">🔄 تحديث</button></div>`+
   list.map(x=>{const cur=x.stages.findIndex(s=>!s.done),pct=Math.round(x.stages.filter(s=>s.done).length/x.stages.length*100),last=x.stages.filter(s=>s.done).length-1;
-    return`<div class=box><b>ورقة ${x.no}</b> · ${TYPES[x.type].n} · ${esc(x.gen)} ${esc(x.well)} · ${fd(x.date)} <span class="tag ${cur<0?'':'c'}" style="${cur<0?'':'background:#e08a1e'}">${cur<0?'تم ✅':'الآن عند: '+ROLES[x.stages[cur].k]}</span> <span class=tag>${pct}%</span><div class=chain>${x.stages.map((s,i)=>`<div class="st ${s.done?'ok':i==cur?'cur':''}">${s.done?'✅':i==cur?'⏳':'⚪'} ${ROLES[s.k]}<br><small>${s.done?esc(s.by)+' · '+new Date(s.at).toLocaleString('ar-IQ'):i==cur?'بانتظار التوقيع':''}</small>${i==cur&&(isAdm()||S.user.role==s.k)?`<br><button class=g onclick="A.sign('${x.id}',${i})">${s.k=='wsDuty'?'✔ تم':'توقيع / تأكيد استلام'}</button>`:''}${s.done&&i==last&&isAdm()?`<br><button class=w onclick="A.unsign('${x.id}',${i})">تراجع</button>`:''}</div>${i<x.stages.length-1?'←':''}`).join('')}</div></div>`}).join('')||'<div class=box>لا توجد أوراق</div>'}
+    return`<div class=box><b>ورقة ${x.no}</b> · ${TYPES[x.type].n} · ${esc(x.gen)} ${esc(x.well)} · ${fd(x.date)} <span class="tag ${cur<0?'':'c'}" style="${cur<0?'':'background:#e08a1e'}">${cur<0?'تم ✅':'الآن عند: '+ROLES[x.stages[cur].k]}</span> <span class=tag>${pct}%</span><div style="font-size:13px;margin-top:6px">📦 ${x.items.map(i=>esc(i.desc)+' × '+i.qty).join(' ، ')}</div><div class=chain>${x.stages.map((s,i)=>`<div class="st ${s.done?'ok':i==cur?'cur':''}">${s.done?'✅':i==cur?'⏳':'⚪'} ${ROLES[s.k]}<br><small>${s.done?esc(s.by)+' · '+new Date(s.at).toLocaleString('ar-IQ'):i==cur?'بانتظار التوقيع':''}</small>${A.can(x,i)?`<br><button class=g onclick="A.sign('${x.id}',${i})">${s.k=='wsDuty'&&S.user.role=='wsDuty'?'✔ تم':'توقيع'}</button>`:''}${s.done&&i==last&&(isAdm()||S.user.role=='wsEng')?`<br><button class=w onclick="A.unsign('${x.id}',${i})">تراجع</button>`:''}</div>${i<x.stages.length-1?'←':''}`).join('')}</div></div>`}).join('')||'<div class=box>لا توجد أوراق</div>'}
 function stock(){const q=(S.sq||'').toLowerCase(),r=S.data.stock.filter(s=>(s.desc+s.pn+s.loc).toLowerCase().includes(q));
   return`<div class=box><input id=sq placeholder="🔍 بحث بالوصف / P/N / الموقع" value="${esc(S.sq||'')}" oninput="S.sq=this.value;A.go('stock',1)"><p><button onclick="A.refStock()">🔄 تحديث الكميات من السيرفر</button>${isAdm()?` <button class=g onclick="A.seed()">⬆️ استيراد المخزن والمولدات إلى Firebase</button>`:''}</p><table><tr><th>No<th>Description<th>P/N<th>Qty<th>Location<th>Comment</tr>${r.slice(0,300).map(s=>`<tr><td>${s.no}<td>${esc(s.desc)}<td>${esc(s.pn)}<td><b style="color:${s.qty<=2?'#c0392b':'inherit'}">${s.qty}</b>${isAdm()?` <a href=# onclick="A.qty('${s.id}',${s.qty});return false">✎</a>`:''}<td>${esc(s.loc)}<td>${esc(s.comment)}</tr>`).join('')}</table></div>`}
 function users(){return`<div class=box><h3>إضافة مستخدم</h3><div class=grid><input id=u_n placeholder="الاسم"><input id=u_e placeholder="البريد" type=email><input id=u_p placeholder="كلمة المرور (6+)" type=password><select id=u_r>${Object.entries(ROLES).map(([k,n])=>`<option value=${k}>${n}`).join('')}</select><label><input type=checkbox id=u_i style="width:auto"> صلاحية الصرف</label><button class=g onclick="A.addUser()">إضافة</button></div></div>
@@ -165,14 +179,14 @@ const byId=id=>S.data.vouchers.find(x=>x.id===id),stg=t=>FLOW[t].map(k=>({k,done
 const rr=()=>setTimeout(()=>{saveDraft();const r=$('#rows');if(r)r.innerHTML=rowsH()},0);
 const A=window.A={
   async login(){try{S.user=await B.login($('#em').value.trim(),$('#pw').value);await start()}catch(e){$('#er').textContent=(e.code||'').startsWith('auth/')?'بيانات الدخول غير صحيحة':em(e)}},
-  async logout(){await B.logout();S.user=null;FM=null;S.hist=[];render()},
+  async logout(){if(S.unl){S.unl();S.unl=null}await B.logout();S.user=null;FM=null;S.hist=[];S.ev=[];clearTimeout(idle);render()},
 async go(t,keep,np){if(S.tab=='form')syncForm();if(!keep&&!np&&t!==S.tab&&S.tab)S.hist.push(S.tab);S.tab=t;
-    try{await refresh({users:t=='users',vouchers:['home','log','track'].includes(t),next:t=='home'||t=='log'})}catch(e){toast(em(e))}render();if(keep){const i=$('#sq');if(i){i.focus();i.setSelectionRange(99,99)}}},
+    try{await refresh({users:t=='users',vouchers:['home','log','track'].includes(t)})}catch(e){toast(em(e))}render();if(keep){const i=$('#sq');if(i){i.focus();i.setSelectionRange(99,99)}}},
   back(){if(S.tab=='form')syncForm();const t=S.hist.pop()||'home';A.go(t,0,1)},
   resume(){S.hist.push(S.tab);S.tab='form';render()},sync(){syncForm()},
   drop(){if(!confirm('تفريغ الورقة ومسح المعلومات المكتوبة؟'))return;FM=null;saveDraft();S.hist=[];A.go('home',0,1)},
   async refStock(){try{await refresh({stock:1});toast('تم تحديث المخزن');render()}catch(e){toast(em(e))}},
-  newV(t){if(FM&&!confirm('عندك ورقة غير محفوظة. استبدالها بورقة جديدة؟'))return A.resume();S.hist.push(S.tab);FM={type:t,old:null,v:{no:S.data.next,date:today(),gen:'',well:'',team:'',gtype:'',maint:'',subject:'',items:[{desc:'',pn:'',qty:0}]}};S.tab='form';saveDraft();render()},
+  newV(t){const autoNo=S.data.next;if(FM&&!confirm('عندك ورقة غير محفوظة. استبدالها بورقة جديدة؟'))return A.resume();S.hist.push(S.tab);FM={type:t,old:null,autoNo,v:{no:autoNo,date:today(),gen:'',well:'',team:'',gtype:'',maint:'',subject:'',items:[{desc:'',pn:'',qty:0}]}};S.tab='form';saveDraft();render()},
   edit(id){if(FM&&!confirm('عندك ورقة غير محفوظة. استبدالها؟'))return A.resume();S.hist.push(S.tab);const o=byId(id);FM={type:o.type,old:o,v:JSON.parse(JSON.stringify(o))};S.tab='form';render()},
   fill(val){const g=normGen(val),i=S.data.gens[g];$('#f_gen').value=g;if(!i)return toast('المولد غير موجود بالبيانات — أدخل المعلومات يدويا');
     const set=(id,x)=>{const e=$('#'+id);if(e)e.value=x||''};set('f_well',i.w);set('f_team',i.t);set('f_gtype',[i.e,i.k].filter(Boolean).join(' '));set('f_maint',i.a);toast('تم تعبئة بيانات '+g)},
@@ -182,22 +196,29 @@ async go(t,keep,np){if(S.tab=='form')syncForm();if(!keep&&!np&&t!==S.tab&&S.tab)
   add(){FM.v.items.push({desc:'',pn:'',qty:0});rr()},del(i){FM.v.items.splice(i,1);rr()},
   async save(){const g=id=>$('#'+id)?.value.trim()||'',v=FM.v,t=FM.type;
     Object.assign(v,{type:t,date:g('f_date')||today(),gen:g('f_gen'),well:g('f_well'),team:g('f_team'),gtype:g('f_gtype'),maint:g('f_maint'),subject:g('f_subject')});
-    const no=+g('f_no');v.no=FM.old?FM.old.no:(no&&no!==S.data.next?no:null);
+    const no=+g('f_no'),auto=FM.autoNo??S.data.next;v.no=FM.old?FM.old.no:(isAdm()&&no&&no!==auto?no:null);
     v.items=v.items.filter(i=>i.desc&&i.qty>0).map(({q,...r})=>({sid:null,...r}));
     if(!v.items.length)return toast('أضف مادة واحدة على الأقل مع الكمية');if(t!='other'&&!v.gen)return toast('أدخل رقم المولد');if(t=='other'&&!v.subject)return toast('أدخل الجهة/الغرض');
     for(const r of v.items)if(r.sid){const s=S.data.stock.find(x=>x.id===r.sid);if(r.qty>avail(r))return toast('الكمية أكبر من المتوفر: '+s.desc)}
     if(FM.old){v.stages=FM.old.stages;v.status=FM.old.status}else{Object.assign(v,{stages:stg(t),status:'active',by:S.user.name,at:Date.now()})}
-    try{const r=await B.save(v,FM.old);localStock(deltas(v,FM.old));await refresh({vouchers:1,next:1});FM=null;saveDraft();S.hist=[];S.tab='log';render();A.view(r.id)}catch(e){toast(em(e))}},
+    try{const r=await B.save(v,FM.old);localStock(deltas(v,FM.old));await refresh({vouchers:1});await ev(FM.old?'edit':'issue',{no:r.no,vt:t,gen:v.gen});FM=null;saveDraft();S.hist=[];S.tab='log';render();A.view(r.id)}catch(e){toast(em(e))}},
   view(id){const v=byId(id);$('#modal').innerHTML=`<div class=nop style="text-align:center;margin-bottom:10px"><button onclick="print()">🖨️ طباعة</button> <button class=w onclick="A.close()">إغلاق</button></div>${sheet(v)}`;$('#modal').style.display='block'},
   close(){$('#modal').style.display='none'},
-  async cancel(id){if(!confirm('إلغاء الورقة وإرجاع المواد للمخزن؟'))return;try{const vv=byId(id);await B.cancel(vv);localStock(deltas(null,vv));A.go('log')}catch(e){toast(em(e))}},
-  async sign(id,i){const v=byId(id);v.stages[i]={k:v.stages[i].k,done:true,by:S.user.name,at:Date.now()};await B.stages(v);A.go('track',0,1)},
-  async unsign(id,i){const v=byId(id);v.stages[i]={k:v.stages[i].k,done:false};await B.stages(v);A.go('track',0,1)},
+  async cancel(id){if(!confirm('إلغاء الورقة وإرجاع المواد للمخزن؟'))return;try{const vv=byId(id);await B.cancel(vv);localStock(deltas(null,vv));await ev('cancel',{no:vv.no,vt:vv.type,gen:vv.gen});A.go('log')}catch(e){toast(em(e))}},
+  can(v,i){const s=v.stages[i],cur=v.stages.findIndex(x=>!x.done);return !s.done&&(isAdm()||S.user.role=='wsEng'||(i==cur&&S.user.role==s.k))},
+  async sign(id,i){const v=byId(id),s=v.stages[i];if(!A.can(v,i))return toast('لا تملك صلاحية التوقيع');
+    v.stages[i]={k:s.k,done:true,by:S.user.name+(S.user.role!=s.k?' (بالنيابة)':''),at:Date.now()};try{await B.stages(v);await ev('sign',{no:v.no,role:s.k})}catch(e){toast(em(e))}A.go('track',0,1)},
+  async unsign(id,i){if(!(isAdm()||S.user.role=='wsEng'))return;const v=byId(id);v.stages[i]={k:v.stages[i].k,done:false};try{await B.stages(v)}catch(e){toast(em(e))}A.go('track',0,1)},
+  async setNext(){const n=+prompt('رقم الصادر القادم (يتحدث عند الجميع)',S.data.next);if(!n||n<1||n%1)return;
+    if(S.data.vouchers.some(x=>x.no===n)&&!confirm('الرقم '+n+' مستخدم بورقة موجودة وسيرفض النظام الحفظ به. تكمل؟'))return;
+    try{await B.setNext(n);onCounter(n);await ev('counter',{n})}catch(e){toast(em(e))}},
+  bell(){try{Notification.requestPermission()}catch{}localStorage[seenKey()]=Math.max(0,...S.ev.map(e=>e.at));
+    $('#modal').innerHTML=`<div class="box nop" style="max-width:600px;margin:40px auto"><h3>🔔 الإشعارات</h3>${S.ev.map(e=>`<p style="margin:6px 0;border-bottom:1px solid #dde5ef;padding-bottom:6px">${esc(evText(e))}<br><small>${new Date(e.at).toLocaleString('ar-IQ')}</small></p>`).join('')||'لا توجد إشعارات'}<button class=w onclick="A.close()">إغلاق</button></div>`;$('#modal').style.display='block';bellUpd()},
   async qty(id,q){const n=prompt('الكمية الجديدة',q);if(n!==null&&!isNaN(+n)){await B.setQty(id,+n);const s=S.data.stock.find(x=>x.id===id);if(s)s.qty=+n;render()}},
   async seed(){try{await B.seed();toast('تم الاستيراد');A.go('stock')}catch(e){toast(em(e))}},
   async addUser(){const g=id=>$('#'+id).value.trim();try{await B.addUser({name:g('u_n'),email:g('u_e'),pw:$('#u_p').value,role:$('#u_r').value,canIssue:$('#u_i').checked});toast('تمت الإضافة');A.go('users')}catch(e){toast(em(e))}},
   async setUser(id,p){await B.setUser(id,p);toast('تم الحفظ')}};
-async function start(){await refresh({stock:1,gens:1,vouchers:1,next:1,users:S.user.role=='admin'});loadDraft();S.hist=[];S.pend=S.user.role=='wsDuty';S.tab=(!canIssue()&&!FM)?'track':'home';render()}
+async function start(){await refresh({stock:1,gens:1,vouchers:1,users:S.user.role=='admin'});loadDraft();S.hist=[];S.pend=S.user.role=='wsDuty';S.tab=(!canIssue()&&!FM)?'track':'home';render();bump();if(S.unl)S.unl();S.unl=B.listen({events:onEv,counter:onCounter})}
 B=FB?await fire():await demo();
 try{S.user=await B.init();if(S.user)await start();else render()}catch(e){S.user=null;render();toast(em(e))}
 </script></body></html>
