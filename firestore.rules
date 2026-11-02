@@ -27,7 +27,7 @@ service cloud.firestore {
       allow read: if ok();
       allow create: if issuer();
       allow update: if admin() || (ok() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages']));
-      allow delete: if false;
+      allow delete: if admin() && resource.data.status == 'cancelled';
     }
   }
 }

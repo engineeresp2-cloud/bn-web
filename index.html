@@ -63,8 +63,9 @@ async function demo(){
     cbs:[],async event(ev){D.events=D.events||[];D.events.unshift({id:'e'+Date.now()+Math.random(),...ev});sv();this.cbs.forEach(c=>c.events(D.events.slice(0,15),false))},
     async setNext(n){D.next=n;sv();this.cbs.forEach(c=>c.counter(n))},
     listen(cb){this.cbs.push(cb);cb.events((D.events||[]).slice(0,15),true);cb.counter(D.next);return()=>{this.cbs=this.cbs.filter(x=>x!==cb)}},
-    async save(v,old){if(!old){v.no=v.no||D.next;if(D.vouchers.some(x=>x.no===v.no))throw Error('رقم الصادر مستخدم');v.id='v'+v.no}
-      const d=deltas(v,old);chk(d);mv(d);if(old)Object.assign(D.vouchers.find(x=>x.id===old.id),v);else{D.vouchers.push(v);D.next=v.no+1}sv();return v},
+    async save(v,old){let rem;if(!old){if(v.no){rem=D.vouchers.find(x=>x.no===v.no);if(rem&&rem.status!=='cancelled')throw Error('الرقم '+v.no+' مستخدم بورقة فعّالة. ألغِها أولاً ثم أعد استخدام الرقم')}else{let n=D.next;while(D.vouchers.some(x=>x.no===n))n++;v.no=n}v.id='v'+v.no}
+      const d=deltas(v,old);chk(d);mv(d);if(old)Object.assign(D.vouchers.find(x=>x.id===old.id),v);else{if(rem)D.vouchers=D.vouchers.filter(x=>x!==rem);D.vouchers.push(v);D.next=v.no+1}sv();return v},
+    async removeCancelled(ids){D.vouchers=D.vouchers.filter(v=>!(ids.includes(v.id)&&v.status==='cancelled'));sv()},
     async cancel(v){mv(deltas(null,v));D.vouchers.find(x=>x.id===v.id).status='cancelled';sv()},
     async stages(v){D.vouchers.find(x=>x.id===v.id).stages=v.stages;sv()},
     async setQty(id,q){D.stock.find(s=>s.id===id).qty=q;sv()},
@@ -81,7 +82,9 @@ async function fire(){
     const p=s.data();if(!p.active)throw Error('الحساب موقوف');return{id:u.uid,...p}}
   const tx=(v,old,cancel)=>F.runTransaction(db,async t=>{
     const dl=cancel?deltas(null,v):deltas(v,old),ids=Object.keys(dl),sn=await Promise.all(ids.map(i=>t.get(d('stock',i))));let cs,vr,nx=149;
-    if(!cancel&&!old){cs=await t.get(d('meta','counter'));nx=cs.exists()?cs.data().next:149;v.no=v.no||nx;v.id='v'+v.no;vr=d('vouchers',v.id);if((await t.get(vr)).exists())throw Error('رقم الصادر مستخدم')}
+    if(!cancel&&!old){cs=await t.get(d('meta','counter'));nx=cs.exists()?cs.data().next:149;if(v.no){vr=d('vouchers','v'+v.no);const e=await t.get(vr);if(e.exists()&&e.data().status!=='cancelled')throw Error('الرقم '+v.no+' مستخدم بورقة فعّالة. ألغِها أولاً ثم أعد استخدام الرقم')}
+      else{for(let k=0;k<50;k++){vr=d('vouchers','v'+nx);if(!(await t.get(vr)).exists())break;nx++}v.no=nx}
+      v.id='v'+v.no}
     sn.forEach((s,k)=>{if(!s.exists())throw Error('المادة غير موجودة بالمخزن، أعد الاستيراد');if(s.data().qty-dl[ids[k]]<0)throw Error('الكمية غير كافية: '+s.data().desc);t.update(s.ref,{qty:s.data().qty-dl[ids[k]]})});
     if(cancel)t.update(d('vouchers',v.id),{status:'cancelled'});else if(old)t.update(d('vouchers',old.id),v);else{t.set(vr,v);t.set(d('meta','counter'),{next:v.no+1})}});
   return{
@@ -100,6 +103,7 @@ async function fire(){
       await A.signOut(a2);if((await F.getDoc(d('users',r.user.uid))).exists())throw Error('المستخدم موجود مسبقاً بالقائمة');delete u.pw;await F.setDoc(d('users',r.user.uid),{...u,active:true})},
     setUser:(id,p)=>F.updateDoc(d('users',id),p),
     event:ev=>F.addDoc(c('events'),ev),
+    async removeCancelled(ids){const b=F.writeBatch(db);ids.forEach(i=>b.delete(d('vouchers',i)));await b.commit()},
     setNext:n=>F.setDoc(d('meta','counter'),{next:n}),
     listen(cb){const u1=F.onSnapshot(d('meta','counter'),s=>{if(s.exists())cb.counter(s.data().next)},()=>{});let first=true;
       const u2=F.onSnapshot(F.query(c('events'),F.orderBy('at','desc'),F.limit(15)),s=>{cb.events(s.docs.map(x=>({id:x.id,...x.data()})),first);first=false},()=>{});return()=>{u1();u2()}},
@@ -117,7 +121,7 @@ const dk=()=>'bn_draft_'+S.user.id,saveDraft=()=>{try{FM?localStorage[dk()]=JSON
 const syncForm=()=>{if(!FM||!$('#f_date'))return;const g=id=>$('#'+id)?.value,v=FM.v;v.date=g('f_date')||v.date;v.no=+g('f_no')||v.no;FM.noEdited=!FM.old&&v.no!==(FM.autoNo??S.data.next);
   [['gen','f_gen'],['well','f_well'],['team','f_team'],['gtype','f_gtype'],['maint','f_maint'],['subject','f_subject']].forEach(([k,id])=>{if($('#'+id))v[k]=g(id)});saveDraft()};
 const loadDraft=()=>{try{FM=JSON.parse(localStorage[dk()]||'null')}catch{FM=null}};
-const evText=e=>({issue:`🆕 ${e.name} صرف ورقة رقم ${e.no} (${TYPES[e.vt]?.n||''}) ${e.gen||''}`,edit:`✏️ ${e.name} عدّل ورقة رقم ${e.no}`,cancel:`❌ ${e.name} ألغى ورقة رقم ${e.no}`,sign:`✅ ${e.name} وقّع مرحلة (${ROLES[e.role]||''}) على ورقة ${e.no}`,counter:`🔢 ${e.name} غيّر رقم الصادر القادم إلى ${e.n}`}[e.t]||'');
+const evText=e=>({issue:`🆕 ${e.name} صرف ورقة رقم ${e.no} (${TYPES[e.vt]?.n||''}) ${e.gen||''}`,edit:`✏️ ${e.name} عدّل ورقة رقم ${e.no}`,cancel:`❌ ${e.name} ألغى ورقة رقم ${e.no}`,sign:`✅ ${e.name} وقّع مرحلة (${ROLES[e.role]||''}) على ورقة ${e.no}`,counter:`🔢 ${e.name} غيّر رقم الصادر القادم إلى ${e.n}`,reset:`🗑 ${e.name} حذف ${e.n} ورقة ملغاة`}[e.t]||'');
 const seenKey=()=>'bn_seen_'+S.user.id,unread=()=>S.ev.filter(e=>e.by!==S.user.id&&e.at>(+localStorage[seenKey()]||0)).length;
 const bellUpd=()=>{const b=$('#bell');if(b){const n=unread();b.textContent='🔔'+(n?' '+n:'');b.className=n?'r':'w'}};
 function onEv(arr,first){const old=new Set(S.ev.map(e=>e.id));S.ev=arr;if(!first)arr.filter(e=>!old.has(e.id)&&e.by!==S.user.id).forEach(e=>{const t=evText(e);toast(t);try{if(document.hidden&&Notification.permission=='granted')new Notification('نظام الصرف',{body:t})}catch{}});bellUpd()}
@@ -151,7 +155,7 @@ function form(){const t=FM.type,v=FM.v;
 const avail=r=>{const s=S.data.stock.find(x=>x.id===r.sid);return s?s.qty+(FM.old?.items.filter(i=>i.sid===r.sid).reduce((a,i)=>a+i.qty,0)||0):'—'};
 function rowsH(){return FM.v.items.map((r,i)=>`<tr><td>${i+1}<td><input list=sdl value="${esc(r.q||'')}" onchange="A.pick(${i},this.value)"><td><input value="${esc(r.desc)}" onchange="A.it(${i},'desc',this.value)"><td><input value="${esc(r.pn)}" onchange="A.it(${i},'pn',this.value)"><td><b>${avail(r)}</b><td style="width:80px"><input type=number min=1 value="${r.qty||''}" onchange="A.it(${i},'qty',+this.value)">${FM.type=='workshop'?`<td><input value="${esc(r.wo||'')}" onchange="A.it(${i},'wo',this.value)">`:''}<td><input list=ndl value="${esc(r.note||'')}" onchange="A.it(${i},'note',this.value)"><td><button class=x onclick="A.del(${i})">✕</button></tr>`).join('')}
 function log(){const q=(S.q||'').toLowerCase(),v=S.data.vouchers.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-  return`<div class=box><input placeholder="🔍 بحث برقم الصادر / المولد / البئر / المادة..." value="${esc(S.q||'')}" oninput="S.q=this.value;A.go('log',1)" id=sq><table><tr><th>الرقم<th>النوع<th>التاريخ<th>Gen<th>بئر/تيم/جهة<th>مواد<th>الحالة<th></tr>${v.map(x=>`<tr><td><b>${x.no}</b><td>${TYPES[x.type].n}<td>${fd(x.date)}<td>${esc(x.gen)}<td>${esc(x.well||x.subject||x.maint||'')}<td style="text-align:right;font-size:12px">${x.items.map(i=>esc(i.desc)+'×'+i.qty).join('، ')}<td><span class="tag ${x.status=='cancelled'?'c':''}">${x.status=='cancelled'?'ملغاة':'فعّالة'}</span><td><button onclick="A.view('${x.id}')">🖨️ عرض/طباعة</button>${isAdm()&&x.status!='cancelled'?` <button class=g onclick="A.edit('${x.id}')">تعديل</button> <button class=r onclick="A.cancel('${x.id}')">إلغاء</button>`:''}</tr>`).join('')}</table></div>`}
+  return`<div class=box>${isAdm()&&v.some(x=>x.status=='cancelled')?`<p><button class=r onclick="A.purge()">🗑 تصفير كل الأوراق الملغاة (${S.data.vouchers.filter(x=>x.status=='cancelled').length})</button> <small>يحذف الملغاة فقط ويحرّر أرقامها لإعادة الاستخدام</small></p>`:''}<input placeholder="🔍 بحث برقم الصادر / المولد / البئر / المادة..." value="${esc(S.q||'')}" oninput="S.q=this.value;A.go('log',1)" id=sq><table><tr><th>الرقم<th>النوع<th>التاريخ<th>Gen<th>بئر/تيم/جهة<th>مواد<th>الحالة<th></tr>${v.map(x=>`<tr><td><b>${x.no}</b><td>${TYPES[x.type].n}<td>${fd(x.date)}<td>${esc(x.gen)}<td>${esc(x.well||x.subject||x.maint||'')}<td style="text-align:right;font-size:12px">${x.items.map(i=>esc(i.desc)+'×'+i.qty).join('، ')}<td><span class="tag ${x.status=='cancelled'?'c':''}">${x.status=='cancelled'?'ملغاة':'فعّالة'}</span><td><button onclick="A.view('${x.id}')">🖨️ عرض/طباعة</button>${isAdm()&&x.status!='cancelled'?` <button class=g onclick="A.edit('${x.id}')">تعديل</button> <button class=r onclick="A.cancel('${x.id}')">إلغاء</button>`:''}${isAdm()&&x.status=='cancelled'?` <button class=r onclick="A.purge('${x.id}')">🗑 حذف</button>`:''}</tr>`).join('')}</table></div>`}
 function track(){const v=S.data.vouchers.filter(x=>x.status!=='cancelled'),p=x=>!x.stages.every(s=>s.done),list=S.pend?v.filter(p):v;
   return`<div class=box style="padding:10px"><button class="${S.pend?'':'w'}" onclick="S.pend=true;A.go('track',0,1)">قيد المتابعة (${v.filter(p).length})</button> <button class="${S.pend?'w':''}" onclick="S.pend=false;A.go('track',0,1)">كل الأوراق (${v.length})</button> <button class=w onclick="A.go('track',0,1)">🔄 تحديث</button></div>`+
   list.map(x=>{const cur=x.stages.findIndex(s=>!s.done),pct=Math.round(x.stages.filter(s=>s.done).length/x.stages.length*100),last=x.stages.filter(s=>s.done).length-1;
@@ -196,7 +200,7 @@ async go(t,keep,np){if(S.tab=='form')syncForm();if(!keep&&!np&&t!==S.tab&&S.tab)
   add(){FM.v.items.push({desc:'',pn:'',qty:0});rr()},del(i){FM.v.items.splice(i,1);rr()},
   async save(){const g=id=>$('#'+id)?.value.trim()||'',v=FM.v,t=FM.type;
     Object.assign(v,{type:t,date:g('f_date')||today(),gen:g('f_gen'),well:g('f_well'),team:g('f_team'),gtype:g('f_gtype'),maint:g('f_maint'),subject:g('f_subject')});
-    const no=+g('f_no'),auto=FM.autoNo??S.data.next;v.no=FM.old?FM.old.no:(isAdm()&&no&&no!==auto?no:null);
+    const no=+g('f_no'),auto=FM.autoNo??S.data.next;v.no=FM.old?FM.old.no:(isAdm()&&no?no:null);
     v.items=v.items.filter(i=>i.desc&&i.qty>0).map(({q,...r})=>({sid:null,...r}));
     if(!v.items.length)return toast('أضف مادة واحدة على الأقل مع الكمية');if(t!='other'&&!v.gen)return toast('أدخل رقم المولد');if(t=='other'&&!v.subject)return toast('أدخل الجهة/الغرض');
     for(const r of v.items)if(r.sid){const s=S.data.stock.find(x=>x.id===r.sid);if(r.qty>avail(r))return toast('الكمية أكبر من المتوفر: '+s.desc)}
@@ -209,8 +213,11 @@ async go(t,keep,np){if(S.tab=='form')syncForm();if(!keep&&!np&&t!==S.tab&&S.tab)
   async sign(id,i){const v=byId(id),s=v.stages[i];if(!A.can(v,i))return toast('لا تملك صلاحية التوقيع');
     v.stages[i]={k:s.k,done:true,by:S.user.name+(S.user.role!=s.k?' (بالنيابة)':''),at:Date.now()};try{await B.stages(v);await ev('sign',{no:v.no,role:s.k})}catch(e){toast(em(e))}A.go('track',0,1)},
   async unsign(id,i){if(!(isAdm()||S.user.role=='wsEng'))return;const v=byId(id);v.stages[i]={k:v.stages[i].k,done:false};try{await B.stages(v)}catch(e){toast(em(e))}A.go('track',0,1)},
+  async purge(id){const ids=id?[id]:S.data.vouchers.filter(x=>x.status=='cancelled').map(x=>x.id);if(!ids.length)return;
+    if(!confirm('حذف نهائي لـ '+ids.length+' ورقة ملغاة؟ لا يمكن التراجع، ولا تتأثر الأوراق الفعّالة.'))return;
+    try{await B.removeCancelled(ids);await ev('reset',{n:ids.length});await refresh({vouchers:1});toast('تم الحذف');render()}catch(e){toast(em(e))}},
   async setNext(){const n=+prompt('رقم الصادر القادم (يتحدث عند الجميع)',S.data.next);if(!n||n<1||n%1)return;
-    if(S.data.vouchers.some(x=>x.no===n)&&!confirm('الرقم '+n+' مستخدم بورقة موجودة وسيرفض النظام الحفظ به. تكمل؟'))return;
+    if(S.data.vouchers.some(x=>x.no===n&&x.status!=='cancelled')&&!confirm('الرقم '+n+' مستخدم بورقة فعّالة، فالنظام يتجاوزه للرقم الحر التالي بالإصدار التلقائي. تكمل؟'))return;
     try{await B.setNext(n);onCounter(n);await ev('counter',{n})}catch(e){toast(em(e))}},
   bell(){try{Notification.requestPermission()}catch{}localStorage[seenKey()]=Math.max(0,...S.ev.map(e=>e.at));
     $('#modal').innerHTML=`<div class="box nop" style="max-width:600px;margin:40px auto"><h3>🔔 الإشعارات</h3>${S.ev.map(e=>`<p style="margin:6px 0;border-bottom:1px solid #dde5ef;padding-bottom:6px">${esc(evText(e))}<br><small>${new Date(e.at).toLocaleString('ar-IQ')}</small></p>`).join('')||'لا توجد إشعارات'}<button class=w onclick="A.close()">إغلاق</button></div>`;$('#modal').style.display='block';bellUpd()},
