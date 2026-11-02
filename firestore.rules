@@ -21,12 +21,21 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     match /meta/counter { allow read: if ok(); allow write: if issuer(); }
-    match /stock/{i}  { allow read: if ok(); allow write: if issuer(); }
+    match /stock/{i} {
+      allow read: if ok();
+      allow create, delete: if issuer();
+      allow update: if issuer() || (ok() && prof().canEdit == true)
+        || (ok() && prof().role == 'wsDuty' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['qty']) && request.resource.data.qty > resource.data.qty);
+    }
     match /gens/{g}   { allow read: if ok(); allow write: if admin(); }
     match /vouchers/{v} {
       allow read: if ok();
       allow create: if issuer();
-      allow update: if admin() || (ok() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages']));
+      allow update: if admin()
+        || (ok() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages']))
+        || (ok() && prof().role == 'wsDuty' && resource.data.status != 'cancelled' && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','rejected']))
+        || (ok() && prof().role == 'wsEng' && prof().canEdit == true && resource.data.status != 'cancelled' && request.resource.data.status != 'cancelled');
       allow delete: if admin() && resource.data.status == 'cancelled';
     }
   }
