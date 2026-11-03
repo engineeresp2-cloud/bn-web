@@ -33,7 +33,12 @@ body{padding-bottom:30px}.credit{position:fixed;bottom:6px;left:0;right:0;text-a
 .sig{display:flex;justify-content:space-between;margin-top:22mm;font-weight:700}.sig div{width:46%;line-height:3}.sig u{display:block;text-align:center}.sig.s4{font-size:11px}.sig.s4 div{width:24%}
 .sheet .f{position:absolute;bottom:10mm;left:14mm;right:14mm;border-top:1px solid #000;padding-top:4px;font-size:10px;display:flex;justify-content:space-between;direction:ltr;font-weight:400}
 .sheet .cx{position:absolute;top:110mm;left:0;right:0;text-align:center;font-size:90px;color:rgba(200,0,0,.25);transform:rotate(-25deg);font-weight:900}
-@media print{#app,.nop,#toast,.credit{display:none!important}body::before{display:none}#modal{position:static;background:none;padding:0;display:block!important}@page{size:A4;margin:0}}
+@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}html,body{margin:0!important;padding:0!important;background:#fff!important;min-height:0!important;height:auto!important}
+#app,.nop,#toast,.credit{display:none!important}body::before{display:none}
+#modal{position:static!important;inset:auto!important;background:none!important;padding:0!important;overflow:visible!important;display:block!important;height:auto!important}
+.sheet{width:210mm!important;min-height:0!important;height:286mm!important;margin:0!important;padding:9mm 12mm!important;box-shadow:none!important;page-break-inside:avoid;overflow:visible}
+.sheet h2{margin:9mm 0 6mm!important}.sheet .info{margin-bottom:5mm!important}.sig{margin-top:16mm!important}.sheet .f{bottom:8mm!important}
+@page{size:A4 portrait;margin:0}}
 </style></head><body><div id="app"></div><div id="modal"></div><div id="toast"></div><div class=credit>تصميم وتطوير: Ahmed Imad</div>
 <script type="module">
 import cfg from './firebase-config.js';
