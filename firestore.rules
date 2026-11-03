@@ -30,12 +30,15 @@ service cloud.firestore {
     match /gens/{g}   { allow read: if ok(); allow write: if admin(); }
     match /vouchers/{v} {
       allow read: if ok();
-      allow create: if issuer();
+      allow create: if admin() || (issuer() && request.resource.data.status == 'pending');
       allow update: if admin()
         || (ok() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages']))
+        || (ok() && prof().role == 'wsDuty' && resource.data.status == 'pending' && request.resource.data.status == 'active'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages','status']))
+        || ((issuer() || (ok() && prof().role == 'wsEng')) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teamEngN','teamDutyN']))
         || (ok() && prof().role == 'wsDuty' && resource.data.status != 'cancelled' && request.resource.data.status == 'cancelled'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','rejected']))
-        || (ok() && prof().role == 'wsEng' && prof().canEdit == true && resource.data.status != 'cancelled' && request.resource.data.status != 'cancelled');
+        || (ok() && prof().role == 'wsEng' && prof().canEdit == true && resource.data.status != 'cancelled' && request.resource.data.status == 'pending');
       allow delete: if admin() && resource.data.status == 'cancelled';
     }
   }
