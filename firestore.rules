@@ -5,6 +5,7 @@ service cloud.firestore {
     function ok(){ return request.auth != null && exists(/databases/$(db)/documents/users/$(request.auth.uid)) && prof().active == true; }
     function admin(){ return ok() && prof().role == 'admin'; }
     function issuer(){ return admin() || (ok() && prof().canIssue == true); }
+    function keys(){ return request.resource.data.diff(resource.data).affectedKeys(); }
 
     match /users/{u} {
       allow read: if request.auth != null && (request.auth.uid == u || admin());
@@ -15,30 +16,35 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null && !exists(/databases/$(db)/documents/meta/init);
     }
+    match /meta/counter { allow read: if ok(); allow write: if issuer(); }
     match /events/{e} {
       allow read: if ok();
       allow create: if ok() && request.resource.data.by == request.auth.uid;
       allow update, delete: if false;
     }
-    match /meta/counter { allow read: if ok(); allow write: if issuer(); }
     match /stock/{i} {
       allow read: if ok();
       allow create, delete: if issuer();
       allow update: if issuer() || (ok() && prof().canEdit == true)
         || (ok() && prof().role == 'wsDuty' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['qty']) && request.resource.data.qty > resource.data.qty);
     }
-    match /gens/{g}   { allow read: if ok(); allow write: if admin(); }
+    match /gens/{g} { allow read: if ok(); allow write: if admin(); }
     match /vouchers/{v} {
       allow read: if ok();
       allow create: if admin() || (issuer() && request.resource.data.status == 'pending');
       allow update: if admin()
-        || (ok() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages']))
-        || (ok() && prof().role == 'wsDuty' && resource.data.status == 'pending' && request.resource.data.status == 'active'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stages','status']))
-        || ((issuer() || (ok() && prof().role == 'wsEng')) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teamEngN','teamDutyN']))
-        || (ok() && prof().role == 'wsDuty' && resource.data.status != 'cancelled' && request.resource.data.status == 'cancelled'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','rejected']))
-        || (ok() && prof().role == 'wsEng' && prof().canEdit == true && resource.data.status != 'cancelled' && request.resource.data.status == 'pending');
+        // توقيع المراحل (الأوراق غير المكتملة وغير الملغاة فقط)
+        || (ok() && resource.data.status in ['pending','active'] && keys().hasOnly(['stages']))
+        // موافقة مناوب الورشة
+        || (ok() && prof().role == 'wsDuty' && resource.data.status == 'pending' && request.resource.data.status == 'active' && keys().hasOnly(['stages','status']))
+        // رفض مناوب الورشة (إلغاء)
+        || (ok() && prof().role == 'wsDuty' && resource.data.status in ['pending','active'] && request.resource.data.status == 'cancelled' && keys().hasOnly(['status','rejected']))
+        // الإتمام النهائي
+        || (ok() && prof().role == 'wsDuty' && resource.data.status == 'active' && request.resource.data.status == 'completed' && keys().hasOnly(['status','completedBy','completedAt']))
+        // أسماء التيم
+        || ((issuer() || (ok() && prof().role == 'wsEng')) && resource.data.status in ['pending','active'] && keys().hasOnly(['teamEngN','teamDutyN']))
+        // تعديل مهندس الورشة (يرجع للموافقة)
+        || (ok() && prof().role == 'wsEng' && prof().canEdit == true && resource.data.status in ['pending','active'] && request.resource.data.status == 'pending');
       allow delete: if admin() && resource.data.status == 'cancelled';
     }
   }
